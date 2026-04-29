@@ -258,7 +258,8 @@ final class ApproveEngine {
         async let subscription: () = networkingInteractor.subscribe(topic: topic)
         async let settleRequest: () = networkingInteractor.request(request, topic: topic, protocolMethod: protocolMethod)
 
-        _ = try await [settleRequest, subscription]
+        _ = try await settleRequest
+        _ = try await subscription
         return session
     }
 }
