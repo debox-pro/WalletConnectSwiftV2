@@ -135,22 +135,12 @@ final class ApproveEngine {
         let result = SessionType.ProposeResponse(relay: relay, responderPublicKey: selfPublicKey.hexRepresentation)
         let response = RPCResponse(id: payload.id, result: result)
 
-        async let proposeResponseTask: () = networkingInteractor.respond(
-            topic: payload.topic,
-            response: response,
-            protocolMethod: SessionProposeProtocolMethod.responseApprove()
-        )
-
-        async let settleRequestTask: WCSession = settle(
-            topic: sessionTopic,
-            proposal: proposal,
-            namespaces: sessionNamespaces,
-            sessionProperties: sessionProperties,
-            pairingTopic: pairingTopic
-        )
-
         do {
-            _ = try await proposeResponseTask
+            try await networkingInteractor.respond(
+                topic: payload.topic,
+                response: response,
+                protocolMethod: SessionProposeProtocolMethod.responseApprove()
+            )
             eventsClient.saveTraceEvent(SessionApproveExecutionTraceEvents.responseApproveSent)
         } catch {
             eventsClient.saveTraceEvent(ApproveSessionTraceErrorEvents.sessionSettleFailure)
@@ -158,7 +148,13 @@ final class ApproveEngine {
         }
 
         do {
-            let session: WCSession = try await settleRequestTask
+            let session: WCSession = try await settle(
+                topic: sessionTopic,
+                proposal: proposal,
+                namespaces: sessionNamespaces,
+                sessionProperties: sessionProperties,
+                pairingTopic: pairingTopic
+            )
             eventsClient.saveTraceEvent(SessionApproveExecutionTraceEvents.sessionSettleSuccess)
             logger.debug("Session settle request has been successfully processed")
 
@@ -255,11 +251,8 @@ final class ApproveEngine {
         let protocolMethod = SessionSettleProtocolMethod()
         let request = RPCRequest(method: protocolMethod.method, params: settleParams)
 
-        async let subscription: () = networkingInteractor.subscribe(topic: topic)
-        async let settleRequest: () = networkingInteractor.request(request, topic: topic, protocolMethod: protocolMethod)
-
-        _ = try await settleRequest
-        _ = try await subscription
+        try await networkingInteractor.request(request, topic: topic, protocolMethod: protocolMethod)
+        try await networkingInteractor.subscribe(topic: topic)
         return session
     }
 }
